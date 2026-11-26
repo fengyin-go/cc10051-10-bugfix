@@ -60,6 +60,24 @@
             >
               {{ action }}
             </button>
+            <button
+              v-if="meta.key === 'golden_merge'"
+              class="link"
+              type="button"
+              :data-testid="`publish-apps-${row.id}`"
+              @click="openMergePublish(row)"
+            >
+              发布申请
+            </button>
+            <button
+              v-if="meta.key === 'golden_publish'"
+              class="link"
+              type="button"
+              :data-testid="`application-${row.id}`"
+              @click="openPublishApplication(Number(row.id))"
+            >
+              申请明细
+            </button>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -86,6 +104,21 @@
       </form>
     </div>
 
+    <MergePublishModal
+      v-if="mergePublishRow"
+      :row="mergePublishRow"
+      @close="mergePublishRow = null"
+      @open-detail="openPublishApplication"
+      @changed="reload"
+    />
+
+    <PublishApplicationPanel
+      v-if="publishApplicationId !== null"
+      :publish-id="publishApplicationId"
+      @close="publishApplicationId = null"
+      @changed="reload"
+    />
+
     <footer class="page-foot">
       <span>共 {{ total }} 条{{ meta.name }}记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -104,6 +137,8 @@ import {
   runAction as applyAction,
 } from '@/api/backend-service'
 import type { EntryRow } from '@/data/types'
+import MergePublishModal from '@/views/MergePublishModal.vue'
+import PublishApplicationPanel from '@/views/PublishApplicationPanel.vue'
 
 const props = defineProps<{ moduleKey: string }>()
 const meta = moduleMeta(props.moduleKey)
@@ -115,6 +150,8 @@ const filterFields = meta.fields.slice(0, 3)
 const showCreate = ref(false)
 const creating = ref(false)
 const createValues = ref<Record<string, string>>({})
+const mergePublishRow = ref<EntryRow | null>(null)
+const publishApplicationId = ref<number | null>(null)
 const stats = computed(() => [
   { label: meta.metrics[0], value: total.value },
   { label: meta.metrics[1], value: rows.value.filter((row) => row.status === meta.statuses[1]).length },
@@ -174,6 +211,16 @@ async function runAction(action: string, row: EntryRow) {
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '操作失败'
   }
+}
+
+function openMergePublish(row: EntryRow) {
+  errorMessage.value = ''
+  mergePublishRow.value = row
+}
+
+function openPublishApplication(id: number) {
+  errorMessage.value = ''
+  publishApplicationId.value = id
 }
 
 async function reload() {

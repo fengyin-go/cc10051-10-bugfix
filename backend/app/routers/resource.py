@@ -73,6 +73,50 @@ def export_entries(
     )
 
 
+@router.get("/golden_merge/{entry_id}/publish_applications", response_model=dict)
+def merge_publish_applications(entry_id: int) -> dict[str, Any]:
+    """合并行的发布申请列表：按候选组归集，另一候选组看不到这笔申请。"""
+    service = require_service("golden_merge")
+    payload = service.publish_applications(entry_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail=f"合并任务 {entry_id} 不存在或已归档")
+    return payload
+
+
+@router.post("/golden_merge/{entry_id}/publish_application", response_model=ActionResult)
+def submit_publish_application(entry_id: int) -> ActionResult:
+    """提交发布申请：幂等受理，重复提交沿用原受理编号。"""
+    service = require_service("golden_merge")
+    result = service.queue_publish(entry_id)
+    return ActionResult(
+        ok=bool(result.get("ok")),
+        message=str(result.get("message", "")),
+        entry=result,
+    )
+
+
+@router.get("/golden_publish/{entry_id}/application", response_model=dict)
+def publish_application_detail(entry_id: int) -> dict[str, Any]:
+    """发布申请明细：原受理单约束的范围 + 合并侧当前认可状态。"""
+    service = require_service("golden_publish")
+    payload = service.application_detail(entry_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail=f"发布批次 {entry_id} 不存在或已归档")
+    return payload
+
+
+@router.post("/golden_publish/{entry_id}/claim", response_model=ActionResult)
+def claim_publish_application(entry_id: int) -> ActionResult:
+    """领取/续领发布申请：按合并侧当前认可结果确认发布明细。"""
+    service = require_service("golden_publish")
+    result = service.claim_application(entry_id)
+    return ActionResult(
+        ok=bool(result.get("ok")),
+        message=str(result.get("message", "")),
+        entry=result.get("entry") if result.get("ok") else None,
+    )
+
+
 @router.get("/{module}/{entry_id}", response_model=dict)
 def get_entry(module: str, entry_id: int) -> dict[str, Any]:
     service = require_service(module)
